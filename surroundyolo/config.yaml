@@ -1,0 +1,6 @@
+output:
+  text: Hello World
+
+image: surroundyolo
+company: yourcompany
+version: latest
