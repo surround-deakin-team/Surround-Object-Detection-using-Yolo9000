@@ -2,67 +2,55 @@ from surround import Stage, SurroundData
 import cv2
 import numpy as np
 
-classes = None
-with open('yolov3.txt', 'r') as f:
-    classes = [line.strip() for line in f.readlines()]
-
-COLORS = np.random.uniform(0, 255, size=(len(classes), 3))
-
-def get_output_layers(net):
-    
-    layer_names = net.getLayerNames()
-    
-    output_layers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
-
-    return output_layers
-
-def draw_bounding_box(img, class_id, confidence, x, y, x_plus_w, y_plus_h):
-
-    label = str(classes[class_id])
-
-    color = COLORS[class_id]
-
-    cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, 2)
-
-    cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-
+# create data class for object detection
 class YoloData(SurroundData):
+    #define class variables
     output_data = None
+    image=None
+    classes=None
+    COLORS=None
+    net=None
+    outs=None
+    class_ids=[]
+    confidences=[]
+    boxes=[]
+    indices=None
 
-    def __init__(self, input_data):
-        print('YoloData init')
-        self.input_data = input_data
+    #assign class variables on initialization
+    def __init__(self, image,classes,COLORS,net):
+        self.image=image
+        self.classes=classes
+        self.COLORS=COLORS
+        self.net=net
         self.errors = []
 
-class ValidateData(Stage):
+#first stage to  create and set input blob
+class InputBlob(Stage):
     def operate(self, surround_data, config):
-        print('ValidateData operate')
-
-        Width = surround_data.input_data.shape[1]
-        Height = surround_data.input_data.shape[0]
         scale = 0.00392
-        print("Read Image Height and Width")
+        # create input blob 
+        blob = cv2.dnn.blobFromImage(surround_data.image, scale, (416,416), (0,0,0), True, crop=False)
 
-        net = cv2.dnn.readNet('yolov3.weights', 'yolov3.cfg')
-        print("Read Yolo Weights and Config")
+        # set input blob for the network
+        surround_data.net.setInput(blob)
 
-        blob = cv2.dnn.blobFromImage(surround_data.input_data, scale, (416,416), (0,0,0), True, crop=False)
-        print("Create Input Blob")
+# second stage to get the output layer names in the architecture
+# run inference through the networknand gather predictions from output layers
+class OutputLayer(Stage):
+    def operate(self, surround_data, config):
+        layer_names = surround_data.net.getLayerNames()
+        output_layers = [layer_names[i[0] - 1] for i in surround_data.net.getUnconnectedOutLayers()]
+        surround_data.outs = surround_data.net.forward(output_layers)
 
-        net.setInput(blob)
-        print("Set Input Blob")
-
-        outs = net.forward(get_output_layers(net))
-        print("Get predictions from output layer")
-
-        class_ids = []
-        confidences = []
-        boxes = []
-        conf_threshold = 0.5
-        nms_threshold = 0.4
-
-
-        for out in outs:
+# third stage to get the confidence, class id, bounding box params
+# for each detetion from each output layer 
+# and ignore weak detections (confidence < 0.5) 
+class Confidence(Stage):
+    def operate(self, surround_data, config):
+        # initialization
+        Width = surround_data.image.shape[1]
+        Height = surround_data.image.shape[0]
+        for out in surround_data.outs:
             for detection in out:
                 scores = detection[5:]
                 class_id = np.argmax(scores)
@@ -74,26 +62,28 @@ class ValidateData(Stage):
                     h = int(detection[3] * Height)
                     x = center_x - w / 2
                     y = center_y - h / 2
-                    class_ids.append(class_id)
-                    confidences.append(float(confidence))
-                    boxes.append([x, y, w, h])
-        indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)
+                    surround_data.class_ids.append(class_id)
+                    surround_data.confidences.append(float(confidence))
+                    surround_data.boxes.append([x, y, w, h])
 
-        for i in indices:
+# fourth stage to apply non-max suppression                   
+class NMS(Stage):
+    def operate(self, surround_data, config):
+        conf_threshold = 0.5
+        nms_threshold = 0.4
+        surround_data.indices = cv2.dnn.NMSBoxes(surround_data.boxes, surround_data.confidences, conf_threshold, nms_threshold)
+
+# fifth stage to draw bounding box on the detected object with class name
+class DrawBoxes(Stage):
+    def operate(self, surround_data, config):
+        for i in surround_data.indices:
             i = i[0]
-            box = boxes[i]
+            box = surround_data.boxes[i]
             x = box[0]
             y = box[1]
             w = box[2]
             h = box[3]
-            draw_bounding_box(surround_data.input_data, class_ids[i], confidences[i], round(x), round(y), round(x+w), round(y+h))
-
-        cv2.imshow("object detection", surround_data.input_data)
-        cv2.waitKey()
-    
-        cv2.imwrite("object-detection.jpg", surround_data.input_data)
-        cv2.destroyAllWindows()
-
-
-
-
+            label = str(surround_data.classes[surround_data.class_ids[i]])
+            color = surround_data.COLORS[surround_data.class_ids[i]]
+            cv2.rectangle(surround_data.image, (round(x),round(y)), (round(x+w),round(y+h)), color, 2)
+            cv2.putText(surround_data.image, label, (round(x)-10,round(y)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)

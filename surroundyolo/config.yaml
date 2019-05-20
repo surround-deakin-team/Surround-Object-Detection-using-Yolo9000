@@ -1,6 +1,6 @@
 output:
   text: Hello World
 
-image: surroundyolo
+image: yolo
 company: yourcompany
 version: latest

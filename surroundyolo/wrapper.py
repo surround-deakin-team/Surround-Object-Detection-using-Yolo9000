@@ -1,18 +1,19 @@
 import os
 import json
 from surround import Surround, Wrapper, AllowedTypes
-from stages import ValidateData, YoloData
+from stages import InputBlob, YoloData, OutputLayer, Confidence, NMS, DrawBoxes
 
 class PipelineWrapper(Wrapper):
     def __init__(self):
-        surround = Surround([ValidateData()], __name__)
+        #initialize surround and pass stages as parameters
+        surround = Surround([InputBlob(),OutputLayer(),Confidence(),NMS(),DrawBoxes()], __name__)
         super().__init__(surround)
-        print('Wrapper Init')
 
-    def run(self, input_data):
-        print('Wrapper Run')
-        print(input_data)
-        data = YoloData(input_data)
+    #wrapper method to run stages
+    def run(self, image, classes, COLORS, net):
+        #initialize data from YoloData
+        data = YoloData(image, classes, COLORS, net)
+        #process data
         self.surround.process(data)
-        print(data.output_data)
-        return {data.output_data}
+        #return image with object detection
+        return data.image
