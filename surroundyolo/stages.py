@@ -23,6 +23,11 @@ class YoloData(SurroundData):
         self.COLORS=COLORS
         self.net=net
         self.errors = []
+        self.outs=None
+        self.class_ids=[]
+        self.confidences=[]
+        self.boxes=[]
+        self.indices=None
 
 #first stage to  create and set input blob
 class InputBlob(Stage):
@@ -87,3 +92,11 @@ class DrawBoxes(Stage):
             color = surround_data.COLORS[surround_data.class_ids[i]]
             cv2.rectangle(surround_data.image, (round(x),round(y)), (round(x+w),round(y+h)), color, 2)
             cv2.putText(surround_data.image, label, (round(x)-10,round(y)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+class ObjectCount(Stage):
+    def operate(self, surround_data, config):
+        unique_elements, counts_elements = np.unique(surround_data.class_ids, return_counts=True)
+        place=0
+        for i in range(len(unique_elements)):
+            cv2.putText(surround_data.image, str(surround_data.classes[unique_elements[i]]+"="+str(counts_elements[i])), (20,20+place), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
+            place+=20

@@ -10,9 +10,15 @@ import numpy as np
 
 def main():
 
-    #read the image
-    image = cv2.imread('data/img.jpg')
+    #read video
+    cap = cv2.VideoCapture('data/traffic.mp4')
 
+    # Define the codec and create VideoWriter object
+    v_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    v_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    vout = cv2.VideoWriter('output/output.mp4', fourcc, 15.0, (v_width,v_height))
+    
     # read class names from text file
     classes = None
     with open('models/yolov3.txt', 'r') as f:
@@ -24,25 +30,32 @@ def main():
     # read pre-trained model and config file
     net = cv2.dnn.readNet('models/yolov3.weights', 'models/yolov3.cfg')
     
-    #create surround wrapper
-    wrapper = PipelineWrapper()
+    while(cap.isOpened()):
+        ret, image = cap.read()
+        if ret==True:
+            #create surround wrapper
+            wrapper = PipelineWrapper()
 
-    #get wrapper configuration
-    config = wrapper.get_config()
+            #get wrapper configuration
+            config = wrapper.get_config()
 
-    #get output after running the wrapper
-    output = wrapper.run(image,classes,COLORS,net)
+            #get output after running the wrapper
+            output = wrapper.run(image,classes,COLORS,net)
 
-    # display output image 
-    cv2.imshow("object detection", output)
+            #write frame
+            vout.write(output)
 
-    # wait until any key is pressed
-    cv2.waitKey()
-
-    # save output image to disk
-    cv2.imwrite("output/object-detection.jpg", image)
-
+            # display output image    
+            cv2.imshow("object detection", output)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        else:
+            break
+    
     # release resources
+    cap.release()
+    vout.release()
     cv2.destroyAllWindows()
+
 if __name__ == "__main__":
     main()

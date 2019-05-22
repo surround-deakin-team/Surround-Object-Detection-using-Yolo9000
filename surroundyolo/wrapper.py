@@ -1,12 +1,12 @@
 import os
 import json
 from surround import Surround, Wrapper, AllowedTypes
-from stages import InputBlob, YoloData, OutputLayer, Confidence, NMS, DrawBoxes
+from stages import InputBlob, YoloData, OutputLayer, Confidence, NMS, DrawBoxes, ObjectCount
 
 class PipelineWrapper(Wrapper):
     def __init__(self):
         #initialize surround and pass stages as parameters
-        surround = Surround([InputBlob(),OutputLayer(),Confidence(),NMS(),DrawBoxes()], __name__)
+        surround = Surround([InputBlob(),OutputLayer(),Confidence(),NMS(),DrawBoxes(),ObjectCount()], __name__)
         super().__init__(surround)
 
     #wrapper method to run stages
