@@ -93,6 +93,7 @@ class DrawBoxes(Stage):
             cv2.rectangle(surround_data.image, (round(x),round(y)), (round(x+w),round(y+h)), color, 2)
             cv2.putText(surround_data.image, label, (round(x)-10,round(y)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
+# sixth stage to count objects and print on image
 class ObjectCount(Stage):
     def operate(self, surround_data, config):
         unique_elements, counts_elements = np.unique(surround_data.class_ids, return_counts=True)
